@@ -15,6 +15,10 @@ Configuração do Aplicativo Streamlit:
 st.title('Dados da Tabela Escola'): Define o título da página.
 st.write(data): Exibe os dados no formato de tabela interativa.
 
+Para instalar as dependências, você pode usar o comando:
+pip install -r requirements.txt
+
+
 Executar o Aplicativo
 Para iniciar o aplicativo, execute o seguinte comando no terminal:
 
