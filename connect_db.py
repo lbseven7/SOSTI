@@ -62,7 +62,7 @@ def get_data(table_name, filter_column=None, filter_value=None):
             connection.close()
 
 # Configuração do aplicativo Streamlit
-st.title('Visualização de Dados')
+st.title('SOSTI - Visualização de Dados ')
 
 # Seleção da tabela
 tables = get_tables()
