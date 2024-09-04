@@ -3,8 +3,13 @@ Sistema de Organização do Setor de TI
 
 Importações e Configuração:
 
-import os, import mysql.connector, from dotenv import load_dotenv, import streamlit as st, import pandas as pd
+import os, 
+import mysql.connector, 
+from dotenv import load_dotenv, 
+import streamlit as st, 
+import pandas as pd
 Carrega variáveis de ambiente do arquivo .env e importa bibliotecas necessárias.
+
 Função get_data:
 
 Conexão com o Banco de Dados: Estabelece uma conexão com o banco de dados MySQL usando credenciais definidas no .env.
