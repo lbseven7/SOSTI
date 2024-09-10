@@ -20,6 +20,8 @@ db_name = os.getenv('DB_NAME')
 # Função para obter as tabelas
 def get_tables():
     """Retorna uma lista de tabelas no banco de dados."""
+    connection = None
+    cursor = None
     try:
         connection = mysql.connector.connect(
             host=db_host,
@@ -33,14 +35,17 @@ def get_tables():
         return tables
     except mysql.connector.Error as err:
         st.error(f"Erro ao conectar ao banco de dados: {err}")
+        return []
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
             connection.close()
 
 # Função para obter dados de uma tabela com filtros
 def get_data(table_name, filters=None):
     """Obtém dados da tabela especificada e aplica filtros se fornecido."""
+    connection = None
+    cursor = None
     try:
         connection = mysql.connector.connect(
             host=db_host,
@@ -63,14 +68,17 @@ def get_data(table_name, filters=None):
         return df
     except mysql.connector.Error as err:
         st.error(f"Erro ao conectar ao banco de dados: {err}")
+        return pd.DataFrame()  # Retorna um DataFrame vazio em caso de erro
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
             connection.close()
 
 # Função para inserir dados
 def insert_data(table_name, data):
     """Insere dados na tabela especificada."""
+    connection = None
+    cursor = None
     try:
         connection = mysql.connector.connect(
             host=db_host,
@@ -91,13 +99,15 @@ def insert_data(table_name, data):
     except mysql.connector.Error as err:
         st.error(f"Erro ao inserir dados: {err}")
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
             connection.close()
 
 # Função para excluir dados
 def delete_data(table_name, id_column, id_value):
     """Exclui um dado da tabela especificada com base no ID."""
+    connection = None
+    cursor = None
     try:
         connection = mysql.connector.connect(
             host=db_host,
@@ -113,7 +123,7 @@ def delete_data(table_name, id_column, id_value):
     except mysql.connector.Error as err:
         st.error(f"Erro ao excluir dados: {err}")
     finally:
-        if connection.is_connected():
+        if connection and connection.is_connected():
             cursor.close()
             connection.close()
 
