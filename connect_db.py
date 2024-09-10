@@ -157,7 +157,7 @@ def generate_pdf(df):
     return buffer
 
 # Configuração do aplicativo Streamlit
-st.title('Inserção, Relatórios, Exclusão e Buscas Rápidas')
+st.title('SOSTI')
 
 # Seleção da tabela
 tables = get_tables()

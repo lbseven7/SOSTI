@@ -1,4 +1,6 @@
-mysql-connector-python
-python-dotenv
 streamlit
 pandas
+mysql-connector-python
+python-dotenv
+matplotlib
+reportlab
