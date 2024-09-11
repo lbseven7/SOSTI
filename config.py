@@ -4,7 +4,6 @@ import os
 # Carregar variáveis do .env
 load_dotenv()
 
-
 # Acessar variáveis de ambiente
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')

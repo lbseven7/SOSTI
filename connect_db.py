@@ -3,10 +3,6 @@ import mysql.connector
 from dotenv import load_dotenv
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.pdfgen import canvas
-from io import BytesIO
 
 # Carrega as variáveis de ambiente do arquivo .env
 load_dotenv()
@@ -17,11 +13,8 @@ db_user = os.getenv('DB_USER')
 db_pass = os.getenv('DB_PASS')
 db_name = os.getenv('DB_NAME')
 
-# Função para obter as tabelas
-def get_tables():
-    """Retorna uma lista de tabelas no banco de dados."""
-    connection = None
-    cursor = None
+# Função para conectar ao banco de dados
+def connect_db():
     try:
         connection = mysql.connector.connect(
             host=db_host,
@@ -29,201 +22,134 @@ def get_tables():
             password=db_pass,
             database=db_name
         )
-        cursor = connection.cursor()
-        cursor.execute("SHOW TABLES")
-        tables = [table[0] for table in cursor.fetchall()]
-        return tables
+        return connection
     except mysql.connector.Error as err:
         st.error(f"Erro ao conectar ao banco de dados: {err}")
-        return []
-    finally:
-        if connection and connection.is_connected():
-            cursor.close()
-            connection.close()
+        return None
 
-# Função para obter dados de uma tabela com filtros
+# Função para obter dados da tabela com filtros
 def get_data(table_name, filters=None):
-    """Obtém dados da tabela especificada e aplica filtros se fornecido."""
-    connection = None
-    cursor = None
-    try:
-        connection = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            password=db_pass,
-            database=db_name
-        )
-        cursor = connection.cursor()
-        query = f"SELECT * FROM {table_name}"
-        if filters:
-            filter_conditions = " AND ".join([f"{col} LIKE %s" for col in filters.keys()])
-            query += f" WHERE {filter_conditions}"
-            cursor.execute(query, [f"%{val}%" for val in filters.values()])
-        else:
-            cursor.execute(query)
-
-        columns = [desc[0] for desc in cursor.description]
-        rows = cursor.fetchall()
-        df = pd.DataFrame(rows, columns=columns)
-        return df
-    except mysql.connector.Error as err:
-        st.error(f"Erro ao conectar ao banco de dados: {err}")
+    connection = connect_db()
+    if connection is None:
         return pd.DataFrame()  # Retorna um DataFrame vazio em caso de erro
-    finally:
-        if connection and connection.is_connected():
-            cursor.close()
-            connection.close()
-
-# Função para inserir dados
-def insert_data(table_name, data):
-    """Insere dados na tabela especificada."""
-    connection = None
-    cursor = None
-    try:
-        connection = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            password=db_pass,
-            database=db_name
-        )
-        cursor = connection.cursor()
-
-        # Montar o comando SQL para inserir os dados
-        placeholders = ', '.join(['%s'] * len(data))
-        columns = ', '.join(data.keys())
-        sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
-        
-        cursor.execute(sql, list(data.values()))
-        connection.commit()
-        st.success("Dados inseridos com sucesso!")
-    except mysql.connector.Error as err:
-        st.error(f"Erro ao inserir dados: {err}")
-    finally:
-        if connection and connection.is_connected():
-            cursor.close()
-            connection.close()
-
-# Função para excluir dados
-def delete_data(table_name, id_column, id_value):
-    """Exclui um dado da tabela especificada com base no ID."""
-    connection = None
-    cursor = None
-    try:
-        connection = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            password=db_pass,
-            database=db_name
-        )
-        cursor = connection.cursor()
-        sql = f"DELETE FROM {table_name} WHERE {id_column} = %s"
-        cursor.execute(sql, (id_value,))
-        connection.commit()
-        st.success("Dados excluídos com sucesso!")
-    except mysql.connector.Error as err:
-        st.error(f"Erro ao excluir dados: {err}")
-    finally:
-        if connection and connection.is_connected():
-            cursor.close()
-            connection.close()
-
-# Função para gerar relatórios e salvar como PDF
-def generate_pdf(df):
-    """Gera um relatório em PDF a partir do DataFrame."""
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=landscape(letter))
-    width, height = landscape(letter)
-
-    # Título
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(100, height - 50, "Relatório de Dados")
-
-    # Definir largura da coluna
-    col_width = width / len(df.columns)
-    y_position = height - 100
-
-    # Cabeçalho da tabela
-    c.setFont("Helvetica-Bold", 12)
-    for i, column in enumerate(df.columns):
-        c.drawString(100 + i * col_width, y_position, column)
     
-    y_position -= 20
+    cursor = connection.cursor()
+    query = f"SELECT * FROM {table_name}"
+    
+    if filters:
+        filter_conditions = " AND ".join([f"{col} LIKE %s" for col in filters.keys()])
+        query += f" WHERE {filter_conditions}"
+        cursor.execute(query, [f"%{val}%" for val in filters.values()])
+    else:
+        cursor.execute(query)
+    
+    columns = [desc[0] for desc in cursor.description]
+    rows = cursor.fetchall()
+    
+    df = pd.DataFrame(rows, columns=columns)
+    cursor.close()
+    connection.close()
+    return df
 
-    # Dados da tabela
-    c.setFont("Helvetica", 10)
-    for index, row in df.iterrows():
-        for i, value in enumerate(row):
-            c.drawString(100 + i * col_width, y_position, str(value))
-        y_position -= 20
-        if y_position < 100:
-            c.showPage()
-            c.setFont("Helvetica-Bold", 12)
-            for i, column in enumerate(df.columns):
-                c.drawString(100 + i * col_width, height - 50, column)
-            y_position = height - 100
+# Função para inserir dados na tabela
+def insert_data(table_name, data):
+    connection = connect_db()
+    if connection is None:
+        return
+    
+    cursor = connection.cursor()
+    placeholders = ', '.join(['%s'] * len(data))
+    columns = ', '.join(data.keys())
+    sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+    
+    cursor.execute(sql, list(data.values()))
+    connection.commit()
+    st.success("Dados inseridos com sucesso!")
+    cursor.close()
+    connection.close()
 
-    c.save()
-    buffer.seek(0)
-    return buffer
+# Função para atualizar dados
+def update_data(table_name, id_column, id_value, updated_data):
+    connection = connect_db()
+    if connection is None:
+        return
+    
+    cursor = connection.cursor()
+    set_clause = ", ".join([f"{col} = %s" for col in updated_data.keys()])
+    sql = f"UPDATE {table_name} SET {set_clause} WHERE {id_column} = %s"
+    
+    cursor.execute(sql, list(updated_data.values()) + [id_value])
+    connection.commit()
+    st.success("Dados atualizados com sucesso!")
+    cursor.close()
+    connection.close()
 
-# Configuração do aplicativo Streamlit
-st.title('SOSTI')
+# Função para marcar registro como inativo (soft delete)
+def soft_delete_data(table_name, id_column, id_value):
+    connection = connect_db()
+    if connection is None:
+        return
+    
+    cursor = connection.cursor()
+    sql = f"UPDATE {table_name} SET status = 'INATIVO' WHERE {id_column} = %s"
+    cursor.execute(sql, (id_value,))
+    connection.commit()
+    st.success("Registro marcado como INATIVO!")
+    cursor.close()
+    connection.close()
 
-# Seleção da tabela
-tables = get_tables()
-if tables:
-    selected_table = st.selectbox('Escolha a tabela para visualizar, inserir ou excluir dados', tables)
-
-    if selected_table:
-        st.sidebar.header('Opções de Inserção e Exclusão')
-
-        # Inserção de dados
-        st.subheader(f'Inserir dados na tabela {selected_table}')
-        columns = [col for col in get_data(selected_table).columns]
-        input_data = {}
-        for column in columns:
-            input_data[column] = st.text_input(f'Insira o valor para {column}')
-
-        if st.button('Inserir Dados'):
-            insert_data(selected_table, input_data)
-
-        # Exclusão de dados
-        st.sidebar.subheader('Excluir dados')
-        df = get_data(selected_table)
-        if not df.empty:
-            id_column = st.sidebar.selectbox('Selecione a coluna de ID', df.columns)
-            ids = df[id_column].tolist()
-            selected_id = st.sidebar.selectbox(f'Selecione o ID para exclusão', ids)
-            if st.sidebar.button('Excluir Dados'):
-                delete_data(selected_table, id_column, selected_id)
-
-        # Filtros de Busca
-        st.sidebar.subheader('Filtros de Busca')
-        filters = {}
-        for column in columns:
-            filter_value = st.sidebar.text_input(f'Valor para {column}', key=column)
-            if filter_value:
-                filters[column] = filter_value
-
-        # Obter dados com ou sem filtros
-        df = get_data(selected_table, filters)
-
-        # Exibir e gerar relatório
-        if not df.empty:
-            st.subheader('Relatório de Dados')
-            st.dataframe(df)
-
-            # Botão para gerar PDF
-            if st.button('Gerar PDF do Relatório'):
-                pdf_buffer = generate_pdf(df)
-                st.download_button(
-                    label="Baixar PDF",
-                    data=pdf_buffer,
-                    file_name="relatorio.pdf",
-                    mime="application/pdf"
-                )
+# Função para exibir a interface de cada tabela
+def show_table_interface(table_name):
+    st.title(f'Gerenciamento da Tabela {table_name}')
+    
+    # Exibição dos dados com filtros
+    st.subheader(f'Dados da Tabela {table_name}')
+    filters = {}
+    df = get_data(table_name, filters)
+    
+    if not df.empty:
+        st.dataframe(df)
+    else:
+        st.error('Nenhum dado encontrado.')
+    
+    # Botões de Inserir, Atualizar e Excluir (soft delete)
+    st.sidebar.subheader(f'Inserir dados em {table_name}')
+    
+    columns = df.columns if not df.empty else []
+    input_data = {col: st.sidebar.text_input(f'Insira o valor para {col}') for col in columns if col != 'status'}
+    
+    if st.sidebar.button(f'Inserir em {table_name}'):
+        if all(input_data.values()):
+            insert_data(table_name, input_data)
         else:
-            st.error('Nenhum dado encontrado com o filtro aplicado.')
+            st.sidebar.error("Por favor, preencha todos os campos.")
 
-else:
-    st.error('Nenhuma tabela encontrada.')
+    st.sidebar.subheader(f'Atualizar dados em {table_name}')
+    
+    if not df.empty:
+        id_column = st.sidebar.selectbox('Coluna de ID para atualizar', df.columns)
+        id_value = st.sidebar.selectbox(f'Selecione o ID para atualizar', df[id_column])
+        updated_data = {col: st.sidebar.text_input(f'Atualize o valor para {col}', df[df[id_column] == id_value][col].values[0]) for col in columns if col != 'status'}
+        
+        if st.sidebar.button(f'Atualizar em {table_name}'):
+            update_data(table_name, id_column, id_value, updated_data)
+    
+    st.sidebar.subheader(f'Excluir dados em {table_name} (Marcar como INATIVO)')
+    
+    if not df.empty:
+        id_value = st.sidebar.selectbox(f'Selecione o ID para marcar como INATIVO', df[id_column])
+        
+        if st.sidebar.button(f'Marcar como INATIVO em {table_name}'):
+            soft_delete_data(table_name, id_column, id_value)
+
+# Menu lateral para escolher a tabela
+st.sidebar.title("Menu de Tabelas")
+
+# Tabelas disponíveis
+tables = ["contador", "demanda", "departamento", "equipamento", "escola", "fornecedor", "gestor", "secretaria", "suprimento", "telefone"]
+
+selected_table = st.sidebar.selectbox("Escolha a tabela para gerenciar", tables)
+
+# Mostrar a interface da tabela selecionada
+if selected_table:
+    show_table_interface(selected_table)
