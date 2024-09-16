@@ -28,20 +28,14 @@ def connect_db():
         return None
 
 # Função para obter dados da tabela com filtros
-def get_data(table_name, filters=None):
+def get_data(table_name, status_filter='ATIVO'):
     connection = connect_db()
     if connection is None:
         return pd.DataFrame()  # Retorna um DataFrame vazio em caso de erro
     
     cursor = connection.cursor()
-    query = f"SELECT * FROM {table_name}"
-    
-    if filters:
-        filter_conditions = " AND ".join([f"{col} LIKE %s" for col in filters.keys()])
-        query += f" WHERE {filter_conditions}"
-        cursor.execute(query, [f"%{val}%" for val in filters.values()])
-    else:
-        cursor.execute(query)
+    query = f"SELECT * FROM {table_name} WHERE status = %s"
+    cursor.execute(query, (status_filter,))
     
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
@@ -98,24 +92,46 @@ def soft_delete_data(table_name, id_column, id_value):
     cursor.close()
     connection.close()
 
+# Função para reativar registro
+def reactivate_data(table_name, id_column, id_value):
+    connection = connect_db()
+    if connection is None:
+        return
+    
+    cursor = connection.cursor()
+    sql = f"UPDATE {table_name} SET status = 'ATIVO' WHERE {id_column} = %s"
+    cursor.execute(sql, (id_value,))
+    connection.commit()
+    st.success("Registro reativado com sucesso!")
+    cursor.close()
+    connection.close()
+
 # Função para exibir a interface de cada tabela
 def show_table_interface(table_name):
     st.title(f'Gerenciamento da Tabela {table_name}')
     
-    # Exibição dos dados com filtros
-    st.subheader(f'Dados da Tabela {table_name}')
-    filters = {}
-    df = get_data(table_name, filters)
+    # Exibição dos dados ATIVOS com filtros
+    st.subheader(f'Dados ATIVOS da Tabela {table_name}')
+    df_ativos = get_data(table_name, status_filter='ATIVO')
     
-    if not df.empty:
-        st.dataframe(df)
+    if not df_ativos.empty:
+        st.dataframe(df_ativos)
     else:
-        st.error('Nenhum dado encontrado.')
+        st.error('Nenhum dado ATIVO encontrado.')
     
+    # Exibição dos dados INATIVOS (exclusões)
+    st.subheader(f'Dados INATIVOS da Tabela {table_name}')
+    df_inativos = get_data(table_name, status_filter='INATIVO')
+    
+    if not df_inativos.empty:
+        st.dataframe(df_inativos)
+    else:
+        st.info('Nenhum dado INATIVO encontrado.')
+
     # Botões de Inserir, Atualizar e Excluir (soft delete)
     st.sidebar.subheader(f'Inserir dados em {table_name}')
     
-    columns = df.columns if not df.empty else []
+    columns = df_ativos.columns if not df_ativos.empty else []
     input_data = {col: st.sidebar.text_input(f'Insira o valor para {col}') for col in columns if col != 'status'}
     
     if st.sidebar.button(f'Inserir em {table_name}'):
@@ -126,21 +142,30 @@ def show_table_interface(table_name):
 
     st.sidebar.subheader(f'Atualizar dados em {table_name}')
     
-    if not df.empty:
-        id_column = st.sidebar.selectbox('Coluna de ID para atualizar', df.columns)
-        id_value = st.sidebar.selectbox(f'Selecione o ID para atualizar', df[id_column])
-        updated_data = {col: st.sidebar.text_input(f'Atualize o valor para {col}', df[df[id_column] == id_value][col].values[0]) for col in columns if col != 'status'}
+    if not df_ativos.empty:
+        id_column = st.sidebar.selectbox('Coluna de ID para atualizar', df_ativos.columns)
+        id_value = st.sidebar.selectbox(f'Selecione o ID para atualizar', df_ativos[id_column])
+        updated_data = {col: st.sidebar.text_input(f'Atualize o valor para {col}', df_ativos[df_ativos[id_column] == id_value][col].values[0]) for col in columns if col != 'status'}
         
         if st.sidebar.button(f'Atualizar em {table_name}'):
             update_data(table_name, id_column, id_value, updated_data)
     
     st.sidebar.subheader(f'Excluir dados em {table_name} (Marcar como INATIVO)')
     
-    if not df.empty:
-        id_value = st.sidebar.selectbox(f'Selecione o ID para marcar como INATIVO', df[id_column])
+    if not df_ativos.empty:
+        id_value = st.sidebar.selectbox(f'Selecione o ID para marcar como INATIVO', df_ativos[id_column])
         
         if st.sidebar.button(f'Marcar como INATIVO em {table_name}'):
             soft_delete_data(table_name, id_column, id_value)
+
+    # Função para reativar dados INATIVOS
+    st.sidebar.subheader(f'Reativar dados INATIVOS em {table_name}')
+    
+    if not df_inativos.empty:
+        id_value = st.sidebar.selectbox(f'Selecione o ID para reativar', df_inativos[id_column])
+        
+        if st.sidebar.button(f'Reativar em {table_name}'):
+            reactivate_data(table_name, id_column, id_value)
 
 # Menu lateral para escolher a tabela
 st.sidebar.title("Menu de Tabelas")
