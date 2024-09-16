@@ -1,11 +1,14 @@
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
-# Carregar variáveis do .env
+# Carrega as variáveis de ambiente
 load_dotenv()
 
-# Acessar variáveis de ambiente
-DB_HOST = os.getenv('DB_HOST')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_NAME = os.getenv('DB_NAME')
+# Configuração de conexão ao banco
+db_host = os.getenv('DB_HOST')
+db_user = os.getenv('DB_USER')
+db_pass = os.getenv('DB_PASS')
+db_name = os.getenv('DB_NAME')
+
+# Lista de tabelas disponíveis
+tables = ["Contador", "Demanda", "Departamento", "Equipamento", "Escola", "Fornecedor", "Gestor", "Secretaria", "Suprimento", "telefone"]
